@@ -258,12 +258,33 @@
        <joint name="lidar_joint" type="fixed">
 
               <parent link="base_link"/>
-          
+
               <child link="lidar_link"/>
-          
+
               <origin xyz="0.00 0 0.09"/>
-          
+
        </joint>
+
+       <gazebo reference="lidar_link">
+           <sensor name="lidar" type="gpu_lidar">
+               <topic>scan</topic>
+               <update_rate>10</update_rate>
+               <lidar>
+                   <scan>
+                       <horizontal>
+                           <samples>360</samples>
+                           <min_angle>-3.14159</min_angle>
+                           <max_angle>3.14159</max_angle>
+                       </horizontal>
+                   </scan>
+                   <range>
+                       <min>0.12</min>
+                       <max>10.0</max>
+                   </range>
+               </lidar>
+               <always_on>true</always_on>
+           </sensor>
+       </gazebo>
 
        <link name="imu_link">
 

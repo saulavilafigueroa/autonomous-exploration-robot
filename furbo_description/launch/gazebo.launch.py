@@ -48,6 +48,8 @@ def generate_launch_description():
 
     ros_gz_sim_path = get_package_share_directory("ros_gz_sim")
 
+    world_path = os.path.join(package_path, "worlds", "furbo_world.sdf")
+
     gazebo = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(
@@ -57,14 +59,17 @@ def generate_launch_description():
             )
         ),
         launch_arguments={
-            "gz_args": "-r empty.sdf"
+            "gz_args": ["-r ", world_path]
         }.items()
     )
 
     clock_bridge = Node(
         package="ros_gz_bridge",
         executable="parameter_bridge",
-        arguments=["/clock@rosgraph_msgs/msg/Clock[ignition.msgs.Clock"],
+        arguments=[
+            "/clock@rosgraph_msgs/msg/Clock[ignition.msgs.Clock",
+            "/scan@sensor_msgs/msg/LaserScan[ignition.msgs.LaserScan",
+        ],
         output="screen"
     )
 
