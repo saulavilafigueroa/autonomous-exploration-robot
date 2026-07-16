@@ -70,6 +70,7 @@ def generate_launch_description():
             "/clock@rosgraph_msgs/msg/Clock[ignition.msgs.Clock",
             "/scan@sensor_msgs/msg/LaserScan[ignition.msgs.LaserScan",
             "/imu@sensor_msgs/msg/Imu[ignition.msgs.IMU",
+            "/camera/image_raw@sensor_msgs/msg/Image[ignition.msgs.Image",
         ],
         output="screen"
     )
