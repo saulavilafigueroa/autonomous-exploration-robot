@@ -328,6 +328,14 @@
           
        </joint>
 
+       <gazebo reference="imu_link">
+            <sensor name="imu_sensor" type="imu">
+                <topic>imu</topic>
+                <update_rate>100</update_rate>
+                <always_on>true</always_on>
+            </sensor>
+        </gazebo>
+
 
        <link name="camera_link">
 
