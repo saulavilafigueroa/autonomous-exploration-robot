@@ -28,7 +28,8 @@ def generate_launch_description():
         executable="robot_state_publisher",
         parameters=[
             {
-                "robot_description": robot_description
+                "robot_description": robot_description,
+                "use_sim_time": True
             }
         ],
         output="screen"
@@ -60,8 +61,40 @@ def generate_launch_description():
         }.items()
     )
 
+    clock_bridge = Node(
+        package="ros_gz_bridge",
+        executable="parameter_bridge",
+        arguments=["/clock@rosgraph_msgs/msg/Clock[ignition.msgs.Clock"],
+        output="screen"
+    )
+
+    joint_state_broadcaster = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=[
+            "joint_state_broadcaster",
+            "--controller-manager",
+            "/controller_manager",
+        ],
+        output="screen"
+    )
+
+    diff_drive_controller = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=[
+            "diff_drive_controller",
+            "--controller-manager",
+            "/controller_manager",
+        ],
+        output="screen"
+    )
+
     return LaunchDescription([
         gazebo,
+        clock_bridge,
         robot_state_publisher,
-        spawn_robot
+        spawn_robot,
+        joint_state_broadcaster,
+        diff_drive_controller,
     ])
