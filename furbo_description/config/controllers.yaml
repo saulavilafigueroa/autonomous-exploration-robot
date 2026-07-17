@@ -38,7 +38,7 @@ diff_drive_controller:
 
     open_loop: true
 
-    enable_odom_tf: true
+    enable_odom_tf: false
 
     publish_limited_velocity: true
 

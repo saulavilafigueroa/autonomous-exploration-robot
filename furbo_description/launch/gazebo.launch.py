@@ -97,6 +97,14 @@ def generate_launch_description():
         output="screen"
     )
 
+    robot_localization_node = Node(
+        package="robot_localization",
+        executable="ekf_node",
+        name="ekf_filter_node",
+        output="screen",
+        parameters=[os.path.join(package_path, "config", "ekf.yaml")]
+    )
+
     return LaunchDescription([
         gazebo,
         clock_bridge,
@@ -104,4 +112,5 @@ def generate_launch_description():
         spawn_robot,
         joint_state_broadcaster,
         diff_drive_controller,
+        robot_localization_node,
     ])
