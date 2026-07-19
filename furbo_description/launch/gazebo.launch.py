@@ -66,12 +66,7 @@ def generate_launch_description():
     clock_bridge = Node(
         package="ros_gz_bridge",
         executable="parameter_bridge",
-        arguments=[
-            "/clock@rosgraph_msgs/msg/Clock[ignition.msgs.Clock",
-            "/scan@sensor_msgs/msg/LaserScan[ignition.msgs.LaserScan",
-            "/imu@sensor_msgs/msg/Imu[ignition.msgs.IMU",
-            "/camera/image_raw@sensor_msgs/msg/Image[ignition.msgs.Image",
-        ],
+        parameters=[{"config_file": os.path.join(package_path, "config", "gz_bridge.yaml")}],
         output="screen"
     )
 
@@ -105,6 +100,38 @@ def generate_launch_description():
         parameters=[os.path.join(package_path, "config", "ekf.yaml")]
     )
 
+    slam_node = Node(
+        package="slam_toolbox",
+        executable="async_slam_toolbox_node",
+        name="slam_toolbox",
+        output="screen",
+        parameters=[os.path.join(package_path, "config", "slam_toolbox.yaml")]
+    )
+
+    lidar_frame_fix = Node(
+        package="tf2_ros",
+        executable="static_transform_publisher",
+        arguments=[
+            "--x", "0", "--y", "0", "--z", "0",
+            "--roll", "0", "--pitch", "0", "--yaw", "0",
+            "--frame-id", "lidar_link",
+            "--child-frame-id", "furbo/base_footprint/lidar"
+        ],
+        output="screen"
+    )
+
+    imu_frame_fix = Node(
+        package="tf2_ros",
+        executable="static_transform_publisher",
+        arguments=[
+            "--x", "0", "--y", "0", "--z", "0",
+            "--roll", "0", "--pitch", "0", "--yaw", "0",
+            "--frame-id", "imu_link",
+            "--child-frame-id", "furbo/base_footprint/imu_sensor"
+        ],
+        output="screen"
+    )
+
     return LaunchDescription([
         gazebo,
         clock_bridge,
@@ -113,4 +140,7 @@ def generate_launch_description():
         joint_state_broadcaster,
         diff_drive_controller,
         robot_localization_node,
+        slam_node,
+        lidar_frame_fix,
+        imu_frame_fix,
     ])
