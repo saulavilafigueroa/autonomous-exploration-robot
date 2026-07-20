@@ -2,17 +2,16 @@ from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
+from launch.actions import GroupAction
+from launch_ros.actions import SetRemap
 
 from ament_index_python.packages import get_package_share_directory
 
 import os
 import xacro
 
-
 def generate_launch_description():
-
     package_name = "furbo_description"
-
     package_path = get_package_share_directory(package_name)
 
     xacro_file = os.path.join(
@@ -108,6 +107,28 @@ def generate_launch_description():
         parameters=[os.path.join(package_path, "config", "slam_toolbox.yaml")]
     )
 
+    nav2_bringup_path = get_package_share_directory("nav2_bringup")
+
+    navigation = GroupAction(
+        actions=[
+            SetRemap(src="/cmd_vel", dst="/diff_drive_controller/cmd_vel_unstamped"),
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(
+                    os.path.join(
+                        nav2_bringup_path,
+                        "launch",
+                        "navigation_launch.py"
+                    )
+                ),
+                launch_arguments={
+                    "use_sim_time": "true",
+                    "params_file": os.path.join(package_path, "config", "nav2_params.yaml"),
+                    "autostart": "true"
+                }.items()
+            )
+        ]
+    )
+
     lidar_frame_fix = Node(
         package="tf2_ros",
         executable="static_transform_publisher",
@@ -143,4 +164,5 @@ def generate_launch_description():
         slam_node,
         lidar_frame_fix,
         imu_frame_fix,
+        navigation,
     ])
