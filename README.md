@@ -57,14 +57,14 @@ The "largest frontier" strategy explored **3.6x faster** and traveled **35% less
 
 ## Running it
 
-\`\`\`bash
+```bash
 colcon build
 source install/setup.bash
 ros2 launch furbo_description gazebo.launch.py
-\`\`\`
+```
 
 In a separate terminal, once the simulation, SLAM, and Nav2 are running:
 
-\`\`\`bash
+```bash
 ros2 run furbo_description frontier_explorer.py
-\`\`\`
+```
