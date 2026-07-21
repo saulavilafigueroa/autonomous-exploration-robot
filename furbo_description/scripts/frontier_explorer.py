@@ -10,6 +10,7 @@ from tf2_ros import Buffer, TransformListener
 import numpy as np
 from collections import deque
 
+TRUE_FREE_AREA_M2 = 33.34
 
 def is_frontier_cell(grid, x, y, width, height):
     if grid[y][x] != 0:
@@ -90,6 +91,41 @@ def select_nearest_frontier(clusters, resolution, origin_x, origin_y, robot_x, r
 
     return best_point
 
+def select_largest_frontier(clusters, resolution, origin_x, origin_y, robot_x, robot_y, failed_goals, min_distance=1.0, avoid_radius=1.0):
+    best_point = None
+    best_size = 0
+
+    for cluster in clusters:
+        if len(cluster) < 3:
+            continue
+
+        cx = sum(c[0] for c in cluster) / len(cluster)
+        cy = sum(c[1] for c in cluster) / len(cluster)
+
+        world_x = origin_x + cx * resolution
+        world_y = origin_y + cy * resolution
+
+        distance = ((world_x - robot_x) ** 2 + (world_y - robot_y) ** 2) ** 0.5
+
+        if distance < min_distance:
+            continue
+
+        too_close_to_failure = False
+        for fx, fy in failed_goals:
+            fail_distance = ((world_x - fx) ** 2 + (world_y - fy) ** 2) ** 0.5
+            if fail_distance < avoid_radius:
+                too_close_to_failure = True
+                break
+
+        if too_close_to_failure:
+            continue
+
+        if len(cluster) > best_size:
+            best_size = len(cluster)
+            best_point = (world_x, world_y)
+
+    return best_point
+
 
 class FrontierExplorer(Node):
 
@@ -102,6 +138,13 @@ class FrontierExplorer(Node):
         self.map_sub = self.create_subscription(
             OccupancyGrid, '/map', self.map_callback, 10
         )
+
+        self.start_time = self.get_clock().now()
+        self.total_distance = 0.0
+        self.last_position = None
+
+        #Select the stratey 'largest' or 'nearest'
+        self.strategy = 'largest'
 
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
@@ -122,6 +165,14 @@ class FrontierExplorer(Node):
             )
             x = transform.transform.translation.x
             y = transform.transform.translation.y
+
+            if self.last_position is not None:
+                dx = x - self.last_position[0]
+                dy = y - self.last_position[1]
+                self.total_distance += (dx ** 2 + dy ** 2) ** 0.5
+
+            self.last_position = (x, y)
+
             return x, y
         except Exception as e:
             self.get_logger().warn(f'Could not get robot position: {e}')
@@ -156,16 +207,24 @@ class FrontierExplorer(Node):
                     frontier_cells.append((x, y))
 
         if not frontier_cells:
-            self.get_logger().info('No frontiers left -- exploration complete.')
-            self.timer.cancel()
-            return
+                self.report_results()
+                self.get_logger().info('No frontiers left -- exploration complete.')
+                self.timer.cancel()
+                return
 
         clusters = cluster_frontier_cells(frontier_cells, width, height)
-        target = select_nearest_frontier(
-            clusters, resolution, origin_x, origin_y, robot_x, robot_y, self.failed_goals
-        )
+
+        if self.strategy == 'nearest':
+            target = select_nearest_frontier(
+                clusters, resolution, origin_x, origin_y, robot_x, robot_y, self.failed_goals
+            )
+        else:
+            target = select_largest_frontier(
+                clusters, resolution, origin_x, origin_y, robot_x, robot_y, self.failed_goals
+            )
 
         if target is None:
+            self.report_results()
             self.get_logger().info('No valid frontiers left -- exploration complete.')
             self.timer.cancel()
             return
@@ -209,6 +268,23 @@ class FrontierExplorer(Node):
             self.get_logger().warn(f'Goal did NOT succeed (status={status}), blacklisting this area...')
             self.failed_goals.append(self.current_goal)
         self.exploring = False
+
+    def report_results(self):
+        elapsed = self.get_clock().now() - self.start_time
+        elapsed_seconds = elapsed.nanoseconds / 1e9
+
+        grid = np.array(self.map_data.data).reshape(
+            (self.map_data.info.height, self.map_data.info.width)
+        )
+        free_cells = np.count_nonzero(grid == 0)
+        resolution = self.map_data.info.resolution
+        mapped_area = free_cells * (resolution ** 2)
+        coverage = (mapped_area / TRUE_FREE_AREA_M2) * 100
+
+        self.get_logger().info('=== EXPLORATION RESULTS ===')
+        self.get_logger().info(f'Time: {elapsed_seconds:.1f} s')
+        self.get_logger().info(f'Distance traveled: {self.total_distance:.2f} m')
+        self.get_logger().info(f'Coverage: {coverage:.1f}% ({mapped_area:.2f} / {TRUE_FREE_AREA_M2} m^2)')
 
 
 def main(args=None):
