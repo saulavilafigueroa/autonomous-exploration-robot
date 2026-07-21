@@ -55,7 +55,7 @@ def cluster_frontier_cells(frontier_cells, width, height):
     return clusters
 
 
-def select_nearest_frontier(clusters, resolution, origin_x, origin_y, robot_x, robot_y, min_distance=0.5):
+def select_nearest_frontier(clusters, resolution, origin_x, origin_y, robot_x, robot_y, failed_goals, min_distance=1.0, avoid_radius=1.0):
     best_point = None
     best_distance = float('inf')
 
@@ -72,6 +72,16 @@ def select_nearest_frontier(clusters, resolution, origin_x, origin_y, robot_x, r
         distance = ((world_x - robot_x) ** 2 + (world_y - robot_y) ** 2) ** 0.5
 
         if distance < min_distance:
+            continue
+
+        too_close_to_failure = False
+        for fx, fy in failed_goals:
+            fail_distance = ((world_x - fx) ** 2 + (world_y - fy) ** 2) ** 0.5
+            if fail_distance < avoid_radius:
+                too_close_to_failure = True
+                break
+
+        if too_close_to_failure:
             continue
 
         if distance < best_distance:
@@ -99,6 +109,8 @@ class FrontierExplorer(Node):
         self.nav_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
 
         self.timer = self.create_timer(2.0, self.explore_step)
+        self.failed_goals = []
+        self.current_goal = None
 
     def map_callback(self, msg):
         self.map_data = msg
@@ -150,7 +162,7 @@ class FrontierExplorer(Node):
 
         clusters = cluster_frontier_cells(frontier_cells, width, height)
         target = select_nearest_frontier(
-            clusters, resolution, origin_x, origin_y, robot_x, robot_y, min_distance=1.0
+            clusters, resolution, origin_x, origin_y, robot_x, robot_y, self.failed_goals
         )
 
         if target is None:
@@ -162,6 +174,7 @@ class FrontierExplorer(Node):
 
     def send_goal(self, target):
         goal_x, goal_y = target
+        self.current_goal = target
         self.get_logger().info(f'Sending goal to: ({goal_x:.2f}, {goal_y:.2f})')
 
         self.nav_client.wait_for_server()
@@ -193,7 +206,8 @@ class FrontierExplorer(Node):
         if status == GoalStatus.STATUS_SUCCEEDED:
             self.get_logger().info('Goal SUCCEEDED, looking for next frontier...')
         else:
-            self.get_logger().warn(f'Goal did NOT succeed (status={status}), looking for next frontier...')
+            self.get_logger().warn(f'Goal did NOT succeed (status={status}), blacklisting this area...')
+            self.failed_goals.append(self.current_goal)
         self.exploring = False
 
 
